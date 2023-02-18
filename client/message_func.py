@@ -1,6 +1,5 @@
 import vk_api,os
-from dotenv import load_dotenv,find_dotenv
-load_dotenv(find_dotenv('.env'))
+import __init__
 
 
 def send_message_user(user_id, message, keyboard=None):

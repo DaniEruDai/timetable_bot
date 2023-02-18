@@ -1,11 +1,7 @@
-import sys,os
-sys.path.append(os.path.join(sys.path[0],'..'))
-from schedule.schedule import Scarecrow
+import __init__
 from time import sleep
 import threading
 
-import sys,os
-sys.path.append(os.path.join(sys.path[0],'..'))
 from schedule.schedule import Scarecrow
 from database import DB
 from message_func import send_message_user
