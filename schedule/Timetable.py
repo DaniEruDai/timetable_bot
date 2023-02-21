@@ -51,17 +51,87 @@ class Preparation:
 class Processing(Preparation):
     
   def __init__(self,group) -> None:
-    super().__init__()  
-    key_1,key_2 = self.__dictionary_keys__()[self.group]
-    self.table = table(list(map(lambda x : x[key_1:key_2],self.table))) # Обрезка всей таблицы
+    super().__init__()
     self.group = group
+    key_1,key_2 = self.__dictionary_keys__()[self.group]
+    main_index = table(self.table).bindex(self.group)[0]
+    self.table = table(list(map(lambda x : x[key_1:key_2],self.table)))[main_index:main_index+5] # Обрезка всей таблицы
     
     
+  def lessons(self):
+    
+    def clear(massive):
+      return [ell for ell in massive if ell!='']
+      
+    di = {
+      'lessons': [self.table[0][::2],self.table[2][::2]],
+      'teachers': [self.table[0][1::2],self.table[2][1::2]],
+      'cabinets': [self.table[4][::2],self.table[1][::2],self.table[3][::2]]
+    }
+    
+    
+    lessons = self.table[0][::2],self.table[2][::2]
+    
+    main_lessons = self.table[0][::2]
+    extra_lessons = self.table[2][::2]
+    
+    teachers = [self.table[0][1::2],self.table[2][1::2]]
+    
+    main_teachers = self.table[0][1::2]
+    extra_teachers = self.table[2][1::2]
+    
+    cabinets = [self.table[4][::2],self.table[3][::2],self.table[1][::2]]
+    
+    main_cabinets = self.table[4][::2]
+    extra2_cabinets = self.table[3][::2]
+    extra1_cabinets = self.table[1][::2]
+    
+    
+    
+    
+    
+    L_index = [i for i, ltr in enumerate(di['lessons'][1]) if ltr != '']
+    C_index = [i for i, ltr in enumerate(di['cabinets'][1]) if ltr != '']
+    
+    for i in L_index+C_index:
+      cab = clear([main_cabinets[i],extra1_cabinets[i],extra2_cabinets[i]])
+      main_cabinets[i] = cab
+      teach = clear([main_teachers[i],extra_teachers[i]])
+      main_teachers[i] = teach
+      les = clear([main_lessons[i],extra_lessons[i]])
+      main_lessons[i] = les
+      
+      
+      
+      
+    for i,k in enumerate(main_lessons):
+      if isinstance(k,list):
+        continue
+      main_lessons[i] = [k]
+    
+    main_lessons = list(chain(*main_lessons))
+    
+    print(main_lessons)
+    # print(extra_lessons)
+    
+    
+    print(main_teachers)
+    # print(extra_teachers)
+    
+    print(main_cabinets)
+    print(extra1_cabinets)
+    # print(extra2_cabinets)
     
   
+    
+      
+   
+    
+  
+    
     
   
 
   
-print(Processing('1ОГР-21-9').indexes())
+print(Preparation().all_groups())
   
