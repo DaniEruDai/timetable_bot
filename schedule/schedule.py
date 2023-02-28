@@ -1,6 +1,6 @@
-from schedule.recipientgsheets import RecipientGoogleSheets
-from schedule.filters import *
-from schedule.fucntions import *
+from recipientgsheets import RecipientGoogleSheets
+from filters import *
+from fucntions import *
 
 
 
@@ -26,18 +26,14 @@ class __Hunter:
         return tuple(tuple(filter(groups, row))[-1] for row in self._table if tuple(filter(groups, row)))
 
     def __dictionary_groups(self) -> dict:
-
         preparatory_list = [list(filter(groups, row)) for row in self._table if list(filter(groups, row))]
         preparatory_list = [a for b in preparatory_list for a in b]
         preparatory_list_2 = preparatory_list[1::]
         for ellement in preparatory_list_2:
             preparatory_list_2[preparatory_list_2.index(ellement)] = self.__timetable.indexes(ellement)[1]
-
         dictionary_groups = dict(zip(preparatory_list, preparatory_list_2))
-
         for key in self.__exclusion_groups:
             dictionary_groups[key] = self.__timetable.indexes(key)[1] + 21
-
         return dictionary_groups
 
     def __cutter_keys(self):
@@ -267,3 +263,6 @@ class Scarecrow(__Butcher):
 
     def get_text(self):
         return f'{self.get_information()}\nДля группы : {self.get_group()}\n\n{self.get_text_without_information()}'
+
+
+print(Scarecrow('1ИСИП-21-9').allgr())

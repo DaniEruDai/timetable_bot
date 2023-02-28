@@ -1,14 +1,9 @@
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 import threading
-
-import sys,os
-sys.path.append(os.path.join(sys.path[0],'..'))
+import __init__
 from schedule.schedule import Scarecrow
 from database import DB
-
-from dotenv import load_dotenv,find_dotenv
-load_dotenv(find_dotenv('.env'))
 
 DB().create_tables() # Создаем бд / Инициализируем таблицы user и chat
 __GROUPS__ = Scarecrow('1ИСИП-21-9').allgr()
