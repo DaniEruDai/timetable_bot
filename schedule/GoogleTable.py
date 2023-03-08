@@ -45,7 +45,10 @@ class GoogleTable:
     request = requests.get(self.__URL).content
     file = io.StringIO(request.decode(encoding=encoding))
     csv_data = csv.reader(file, delimiter=",")
-    return[row for row in csv_data]
+    result = [row for row in csv_data]
+    return result
+    
+    
 
   def rows(self) -> table:
     return table(self.__table)
