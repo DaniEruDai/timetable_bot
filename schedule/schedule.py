@@ -265,4 +265,18 @@ class Scarecrow(__Butcher):
         return f'{self.get_information()}\nДля группы : {self.get_group()}\n\n{self.get_text_without_information()}'
 
 
-print(Scarecrow('1ИСИП-21-9').allgr())
+alld= Scarecrow('1ИСИП-21-9').allgr()
+issues = []
+for i in alld:
+  try:
+    print('-----------------------------------------------------------')
+    print(f"{Scarecrow(i).get_text()}\n\n")
+    print('-----------------------------------------------------------')
+    
+  except Exception as e: issues.append([i,e])
+
+print('Все окончено')
+
+print('Ошибки : \n')
+for d in issues:
+  print(f'{d}\n')

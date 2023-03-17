@@ -1,26 +1,32 @@
 from itertools import chain
-import pandas as pd
 import requests
 import numpy as np
 import csv,io
-import asyncio
+from dataclasses import dataclass
 
 
 class TableExceptions:
   class VoidValue(Exception):
     ...
 
+
+@dataclass
+class index_object:
+  row : int
+  column : int
+
 class table(list):
 
-  def bindex(self,word) -> list:
+  def bindex(self,word) -> index_object:
     l = np.array(self)
     index = np.argwhere(l == word).tolist()
-
     if len(index) == 0:
       raise TableExceptions.VoidValue(f'{word} - совпадений не обнаружено')
-    return index[0]
+      
+    return index_object(column = index[0][0],row=index[0][1])
 
   def bindex_disexact(self,word) -> dict:
+    """TODO:Доработать"""
     l = np.array(self)
     coincident = [[ellement for ellement in row if word in ellement] for row in l.tolist()]
     coincident = set(chain(*coincident))

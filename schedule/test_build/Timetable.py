@@ -1,11 +1,8 @@
-from GoogleTable import GoogleTable, table
+from GoogleTable import GoogleTable, table ,TableExceptions
 import re
-from itertools import chain
+from itertools import chain,zip_longest
 from datetime import datetime
 
-class TableExceptions:
-  class VoidTable(Exception):
-    ...
 
 
 
@@ -19,7 +16,7 @@ class Preparation:
     result = re.findall(r'\S\w*-[\.А-Я-0-9]+', string_from_table)
     return result
 
-  def __exception_groups__(self) -> list :
+  def __exception_groups(self) -> list :
     exception_groups = []
     for column in self.table:
       string_from_column = ' '.join(column)
@@ -29,17 +26,35 @@ class Preparation:
       exception_groups.append(result[-1])
     return exception_groups
 
+  def formated(self) -> table :
+    result = []
+    print(self.table)
+    for column in self.table:
+      col= []
+      for ellement in column:
+        
+        try:
+          col.append(re.search(r'\S\w*-[\.А-Я-0-9]+', ellement).group())
+        except AttributeError:
+          col.append('')
+      result.append(col)
+    return table(result)
+        
+    
+
   def __dictionary_keys__(self) -> dict:
     dkey = {}
-    groups_1 = self.all_groups()
-    groups_2 = groups_1[1:]
-    groups_2.append('')
-    t = table(self.table)
-    for f,s in zip(groups_1,groups_2):
-      value = t.bindex(f)[1]+1,t.bindex(s)[1]
-      if f in self.__exception_groups__():
-        value = t.bindex(f)[1]+1,t.bindex(f)[1]+12
-      dkey[f] = value
+    groups = self.all_groups()
+  
+   
+    t = self.formated()
+    for gr_1,gr_2 in zip_longest(groups,groups[1:],fillvalue=''):
+      
+      
+      value = t.bindex(gr_1).row+1,t.bindex(gr_2).row
+      if gr_1 in self.__exception_groups():
+        value = t.bindex(gr_1).row+1,t.bindex(gr_1).row+12
+      dkey[gr_1] = value
     return dkey 
   
 class Processing(Preparation):
@@ -47,13 +62,9 @@ class Processing(Preparation):
   def __init__(self,group) -> None:
     super().__init__()
     self.key_1,self.key_2 = self.__dictionary_keys__()[group]
-    self.main_index = table(self.table).bindex(group)[0]
-    
-    
+    self.main_index = self.formated().bindex(group).column
     self.number = self.table[0][self.key_1:self.key_2]
     self.date_str = self.table[0][0]
-    
-    
     self.table = table(list(map(lambda x : x[self.key_1:self.key_2],self.table)))[self.main_index:self.main_index+5] # Обрезка всей таблицы
     self.table = list(map(lambda x : [''] + x if len(x) % 2 != 0 else x,self.table))
     
@@ -184,34 +195,9 @@ class Processing(Preparation):
     return time
 
 
-# print(f"{Processing('ДП-20-9').numbers()}")
 
 
-alld= Preparation().all_groups()
-issues = []
-for i in alld:
-  try:
-    print(f'--------------------------{i}------------------------------')
-    print(f"{Processing(i).numbers()}")
-    print(f"{Processing(i).time()}")
-    print(f"{Processing(i).lessons()}\n\n")
-    print('-----------------------------------------------------------')
-    
-  except Exception as e: issues.append([i,e])
-
-print('Все окончено')
-
-print('Ошибки : \n')
-for d in issues:
-  print(f'{d}\n')
-
-  
-
-
-
-
-
-
+print(Processing('БУХ-20-9').time())
 
 
 
