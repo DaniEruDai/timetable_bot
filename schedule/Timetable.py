@@ -3,7 +3,8 @@ import re
 from itertools import chain,zip_longest
 from datetime import datetime
 import json
-
+import os
+import time
 
 
 class _CropTableTeachers():
@@ -64,8 +65,8 @@ class _CropTableTeachers():
     lessons_bool = list(map(lambda i : True if i == '' else False,lessons))
     if all(lessons_bool):
       return None
-    
-    return  {'default' : self.get_groups(),
+      
+    return  {'default' : self.get_teachers(),
             'lesson':lessons,
             'cabinet' : self.get_cabinets(),
             'time':self.get_time(),
@@ -170,10 +171,12 @@ class _CropTableStudents():
   def get_teachers(self) -> list:
     teachers = self.__TABLE__[self.__column_index][self.key_1:self.key_2][1::2]
     teachers_2 = self.__TABLE__[self.__column_index+2][self.key_1:self.key_2][1::2]
+    
   
     result = []
     
     for t1,t2 in zip(teachers,teachers_2):
+      
       
       if not t1 and not t2:
         result.append(t1)
@@ -186,7 +189,7 @@ class _CropTableStudents():
         result.append(t1)
       
       elif t2 and not t1:
-        result.append(t1)
+        result.append(t2)
         
     return result
 
@@ -263,7 +266,6 @@ class _CropTableStudents():
     lessons_bool = list(map(lambda i : True if i == '' else False,lessons))
     if all(lessons_bool):
       return None
-      
     return  {'default' : self.get_teachers(),
             'lesson':lessons,
             'cabinet' : self.get_cabinets(),
@@ -349,7 +351,10 @@ class StudentsTable:
       
     return dictionary
 
-def get_all_dictionaries():
+def get_all_dictionaries() -> dict:
+  """
+Фунция создает общий словарь для преподователей и студентов
+  """
   ST = StudentsTable().get_all_groups_dictionary()
   TT = TeachersTable().get_all_teachers_dictionary()
   return ST | TT
@@ -378,4 +383,62 @@ def update_json_file(new_data:dict = {}) -> None:
                   fp = js,
                   ensure_ascii=False,
                   indent=4)
+
+def get_creation_date():
+
+# путь к файлу, дату создания которого мы хотим получить
+  path = 'timetable.json'
+  # получение времени создания файла
+  created_time = os.path.getctime(path)
+
+  # преобразование времени в строку с форматированием
+  created_time_str = time.strftime('%Y-%m-%d в %H:%M:%S', time.localtime(created_time))
+
+  # вывод даты создания файла
+  return f'Последнее обновление расписания : {created_time_str}'
+
+class Configurator():
+  
+  def __init__(self,group:str,config_string : str = '(number)[time]|cabinet| lesson - default\n') -> None:
+    self.config_string = config_string
+    self.json_data : dict = self.__get_json_data()[group]
+
+
+  def __get_clean_row(self)->str:
+    string = self.config_string
+    for value in ('default','lesson','cabinet' ,'time','number'):
+      if value in self.config_string:
+        string = string.replace(value,"{"+str(value)+"}")
+    return string
+    
+  def __get_reverse_values(self)->list:
+    values = []
+    for value in ('default','lesson','cabinet' ,'time','number'):
+      if value not in self.config_string:
+        values.append(value)
+        
+    return values
+
+  def __get_json_data(self)->None:
+      with open("timetable.json",'r',encoding='UTF-8') as js:
+        json_data = json.loads(js.read())
+        return json_data
+    
+  def configuration(self) -> list:
+    
+    for key in self.__get_reverse_values():
+      del self.json_data[key]
+
+    rows = ''
+    keys = list(self.json_data.keys())
+    for value in zip(*self.json_data.values()):
+      format_dict = {k:v for k, v in zip(keys, value)}
+      row = self.__get_clean_row().format(**format_dict)
+      rows = rows + row
+    return rows
+    
+      
+     
+
+print(Configurator('ЭП-22-9').configuration())
 
