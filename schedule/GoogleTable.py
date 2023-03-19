@@ -1,68 +1,48 @@
-from itertools import chain
-import pandas as pd
 import requests
 import numpy as np
+import csv,io
+from dataclasses import dataclass
+from aiohttp import ClientSession
+import asyncio
 
-class TableExceptions:
-  class VoidValue(Exception):
-    ...
+@dataclass
+class IndexObject:
+  """
+Датакласс IndexObject определяет объект, содержащий индексы строки и столбца для определенного элемента таблицы.
+\nЭто может быть полезно, когда необходимо получить доступ к конкретному элементу в таблице, и иметь возможность быстро получить его координаты.
+  """
+  row : int
+  column : int
 
-class table(list):
+class Table(list):
 
-  def bindex(self,word) -> list:
+  def get_index(self,word) :
+    """
+Метод используется для поиска индекса (номера строки и столбца) первого вхождения заданного слова в объекте Table.
+    """
     l = np.array(self)
     index = np.argwhere(l == word).tolist()
+    if len(index) == 0: return None
+    return IndexObject(column = index[0][0],row=index[0][1])
 
-    if len(index) == 0:
-      raise TableExceptions.VoidValue(f'{word} - совпадений не обнаружено')
-    return index[0]
+def get_table(tableid: str, gid: str = '0', encoding: str = 'utf-8') -> Table:
+  """
+Эта функция используется для получения данных из Google Sheets таблицы и преобразования их в объект класса Table.
+  """
+  __URL = f'https://docs.google.com/spreadsheets/d/{tableid}/gviz/tq?tqx=out:csv&sheet&gid={gid}'
+  
+  request = requests.get(__URL).content
+  file = io.StringIO(request.decode(encoding=encoding))
+  csv_data = csv.reader(file, delimiter=",") 
+  rows = [row for row in csv_data]
 
-  def bindex_disexact(self,word) -> dict:
-    l = np.array(self)
-    coincident = [[ellement for ellement in row if word in ellement] for row in l.tolist()]
-    coincident = set(chain(*coincident))
-    
-    if len(coincident) == 0: 
-      raise TableExceptions.VoidValue(f'{word} - совпадений не обнаружено')
-    
-    dictionary = {}
-    for group in coincident:
-      index = np.argwhere(l == group).tolist()
-      dictionary[group] = index
-    return dictionary
+  columns = []
+  for index in range(len(max(rows))):
+    column = [row[index] for row in rows]
+    columns.append(column)
+  
+  return Table(columns)
 
-class GoogleTable:
-
-  def __init__(self, tableid: str, gid: str = '0', encoding: str = 'utf-8'):
-      self.__tableid = tableid
-      self.__URL = f'https://docs.google.com/spreadsheets/d/{self.__tableid}' \
-                    f'/export?format=csv&id={self.__tableid}&gid={gid} '
-      self.__df = pd.read_csv(self.__URL, keep_default_na=False, na_filter=False, encoding=encoding)
-
-  def rows(self) -> table:
-    rows = self.__df.values.tolist()
-    return table(rows)
-
-  def columns(self,column_names_as_first_ellement: bool = False) -> table:
-    rows = self.__df.values.tolist()
-    columns = []
-    
-    for index in range(len(max(rows))):
-      column = [row[index] for row in rows]
-      columns.append(column)
-      
-      if column_names_as_first_ellement:
-        column.insert(0, self.__df.columns[index])
-    return table(columns)
-
-  def column_names(self) -> list:
-      return self.__df.columns
-
-  def tofile(self, filename: str = 'file', file_format: str = 'xlsx'):
-      url = f'https://docs.google.com/spreadsheets/d/{self.__tableid}/export?format={file_format}&id={self.__tableid}'
-      r = requests.get(url)
-      with open(f'{filename}.{file_format}', 'wb') as f:
-          f.write(r.content)
 
 
 
