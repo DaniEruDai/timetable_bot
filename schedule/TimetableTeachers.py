@@ -111,7 +111,7 @@ class _CropTableTeachers():
 class TeachersTable:
 
   def __init__(self) -> None:
-    self.__TABLE__ = self.__update_table(get_table('1rGJ4_4BbSm0qweN7Iusz8d55e6uNr6bFRCv_j3W5fGU','1202329550')[:9])
+    self.__TABLE__ = self.__update_table(get_table('преподавателям')[:9])
 
   def __update_table(self,table) -> Table :
     

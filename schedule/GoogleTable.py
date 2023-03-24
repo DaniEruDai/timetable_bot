@@ -3,7 +3,7 @@ import numpy as np
 import csv,io
 from dataclasses import dataclass
 from aiohttp import ClientSession
-import asyncio
+import openpyxl
 
 @dataclass
 class IndexObject:
@@ -25,24 +25,35 @@ class Table(list):
     if len(index) == 0: return None
     return IndexObject(column = index[0][0],row=index[0][1])
 
-def get_table(tableid: str, gid: str = '0', encoding: str = 'utf-8') -> Table:
+def get_table(worksheet_name : str ):
   """
 Эта функция используется для получения данных из Google Sheets таблицы и преобразования их в объект класса Table.
   """
-  __URL = f'https://docs.google.com/spreadsheets/d/{tableid}/gviz/tq?tqx=out:csv&sheet&gid={gid}'
-  
+  __URL = f'https://docs.google.com/spreadsheets/u/0/d/1rGJ4_4BbSm0qweN7Iusz8d55e6uNr6bFRCv_j3W5fGU/export?format=xlsx&id=1rGJ4_4BbSm0qweN7Iusz8d55e6uNr6bFRCv_j3W5fGU'
+
   request = requests.get(__URL).content
-  file = io.StringIO(request.decode(encoding=encoding))
-  csv_data = csv.reader(file, delimiter=",") 
-  rows = [row for row in csv_data]
-
-  columns = []
-  for index in range(len(max(rows))):
-    column = [row[index] for row in rows]
-    columns.append(column)
+  file = io.BytesIO(request)
   
-  return Table(columns)
+  # Открытие файла Excel
+  workbook = openpyxl.load_workbook(file)
+  
+  # Выбор листа с нужными строками
+  ws = workbook[worksheet_name]
+  
+  # Обход выбранных строк и получение значений ячеек
+  all_columns = []
+  for column in ws.iter_cols():
+    column_data = []
+    for cell in column:
+      value = cell.value
+      if isinstance(value,float):
+        value = int(value)
+      
+      elif value is None:
+        value = ''
+        
 
-
-
+      column_data.append(str(value))
+    all_columns.append(column_data) 
+  return all_columns
 
