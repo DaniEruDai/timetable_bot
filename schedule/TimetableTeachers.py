@@ -1,4 +1,4 @@
-from GoogleTable import get_table, Table
+from schedule.GoogleTable import get_table, Table
 import re
 from itertools import chain,zip_longest
 from datetime import datetime
@@ -50,6 +50,25 @@ class _CropTableTeachers():
             last = i
     return (first, last+1) if first is not None else (None, None)
   
+  @staticmethod
+  def __get_english_strings(arrays) -> list:
+    result_arrays = []
+    for i in arrays:
+      array = []
+      for word in i:
+        
+        english_chars = ""
+        
+        for char in word:
+          
+          if char.isalpha() and char.isascii():
+            english_chars += char
+            
+        array.append(english_chars)
+      result_arrays.append(array)
+    
+    return result_arrays
+  
   def get_lessons(self) -> list:
     lesson = self.__even_it_out(self.__TABLE__[self.__column_index][self.key_1:self.key_2])[1::2]
 
@@ -92,19 +111,57 @@ class _CropTableTeachers():
     result = [i for i in result if i != '']
     return result
 
-  def get_dictionary(self) -> dict:
+  def get_distance(self) -> list:
+    distance = []
+
+    for c1,c2,c3 in zip(*self.__get_english_strings([self.get_lessons(),self.get_default(),self.get_cabinets()])):
+      if c1 == c2 == c3:
+        distance.append(c1)
+      elif c2 and c3:
+        distance.append(c2)
+        distance.append(c3)
+      elif c1:
+        distance.append(c1)
+      elif c2 and not c3 :
+        distance.append(c2)
+      elif c3 and not c2:
+        distance.append(c3)
+    return distance
+  
+  def __get_clean_data(self):
+    lessons = self.get_lessons()
+    default = self.get_default()
+    cabinets = self.get_cabinets()
+    distance = self.get_distance()
+    
+    for i,(l,d) in enumerate(zip(lessons,distance)):
+      repl = l.replace(d,'')
+      lessons[i] = repl.strip()
+      
+    for i,(de,d) in enumerate(zip(default,distance)):
+      repl = de.replace(d,'')
+      default[i] = repl.strip()
+
+    for i,(c,d) in enumerate(zip(cabinets,distance)):
+      repl = c.replace(d,'')
+      cabinets[i] = repl.strip()
+    
+    return lessons,default,cabinets
+
+  def get_dictionary (self) -> dict:
     lessons = self.get_lessons()
     r1,r2 = self.__find_range(lessons)
     lessons_bool = list(map(lambda i : True if i == '' else False,lessons))
-    
+    clean_data = self.__get_clean_data()
     
     if all(lessons_bool):
       return None
-    return  {'default' : self.get_default()[r1:r2],
-            'lesson':lessons[r1:r2],
-            'cabinet' : self.get_cabinets()[r1:r2],
+    return  {'default' :clean_data[1][r1:r2],
+            'lesson':clean_data[0][r1:r2],
+            'cabinet' : clean_data[2][r1:r2],
             'time':self.get_time()[r1:r2],
             'number': self.get_numbers()[r1:r2],
+            'distance': self.get_distance()[r1:r2],
             'date' : self.date}
 
 
