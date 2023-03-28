@@ -3,17 +3,27 @@ from schedule.TimetableStudents import get_dictionary_for_students
 from schedule.TimetableTeachers import get_dictionary_for_teachers
 
 
-def update_json_file() -> None:
-  dictionary = get_dictionary_for_students() | get_dictionary_for_teachers()
-  with open("timetable.json",'w',encoding='UTF-8') as js:
+def get_dict() -> dict:
+  return get_dictionary_for_students() | get_dictionary_for_teachers()
+
+def read_json(filename:str = 'timetable.json') -> dict:
+  with open(filename,'r',encoding='UTF-8') as js:
+    json_data = json.loads(js.read())
+    return json_data
+
+def write_json(filename : str = 'timetable.json',dictionary : dict =  None) -> None:
+
+  with open(filename,'w',encoding='UTF-8') as js:
     json.dump(obj=dictionary,
               fp = js,
               ensure_ascii=False,
               indent=4)
 
+
 class TimeTable():
   
-  def __init__(self,default:str,config_string : str = '(number)[time]|cabinet| lesson - default |distance|\n') -> None:
+  def __init__(self,filename : str, default:str,config_string : str = '(number)[time]|cabinet| lesson - default |distance|/n') -> None:
+    self.filename = filename
     self.config_string = config_string
     self.default = default
 
@@ -22,6 +32,7 @@ class TimeTable():
     for value in ('default','lesson','cabinet' ,'time','number','distance'):
       if value in self.config_string:
         string = string.replace(value,"{"+str(value)+"}")
+    string = string.replace('/n','\n')
     return string
     
   def __get_reverse_values(self)->list:
@@ -33,11 +44,11 @@ class TimeTable():
     return values
 
   @staticmethod
-  def __read_json_data() -> None:
-      with open("timetable.json",'r',encoding='UTF-8') as js:
-        json_data = json.loads(js.read())
-        return json_data
-  
+  def __read_json_data(self) -> dict:
+    with open(self.filename,'r',encoding='UTF-8') as js:
+      json_data = json.loads(js.read())
+      return json_data
+    
   @staticmethod
   def __get_creation_date() -> str:
     created_time = os.path.getmtime('timetable.json')

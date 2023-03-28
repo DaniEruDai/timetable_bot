@@ -1,6 +1,6 @@
 import requests
 import numpy as np
-import csv,io
+import io
 from dataclasses import dataclass
 from aiohttp import ClientSession
 import openpyxl
