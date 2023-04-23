@@ -1,4 +1,6 @@
-from schedule.GoogleTable import get_table, Table
+from schedule.google_table import get_table, Table
+
+
 import re
 from itertools import chain,zip_longest
 from datetime import datetime
@@ -243,9 +245,6 @@ class _CropTableStudents():
             'number': self.get_numbers()[r1:r2],
             'distance': self.get_distance()[r1:r2],
             'date' : self.date}
-
- 
-    
 
 class StudentsTable:
 

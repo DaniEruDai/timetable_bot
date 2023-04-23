@@ -1,6 +1,10 @@
-import json,time,os
-from schedule.TimetableStudents import get_dictionary_for_students
-from schedule.TimetableTeachers import get_dictionary_for_teachers
+from ._students import get_dictionary_for_students
+from ._teachers import get_dictionary_for_teachers
+
+import os
+import json,time
+
+
 
 
 def get_dict() -> dict:
@@ -12,18 +16,16 @@ def read_json(filename:str = 'timetable.json') -> dict:
     return json_data
 
 def write_json(filename : str = 'timetable.json',dictionary : dict =  None) -> None:
-
   with open(filename,'w',encoding='UTF-8') as js:
     json.dump(obj=dictionary,
               fp = js,
               ensure_ascii=False,
               indent=4)
 
-
 class TimeTable():
   
-  def __init__(self,filename : str, default:str,config_string : str = '(number)[time]|cabinet| lesson - default |distance|/n') -> None:
-    self.filename = filename
+  def __init__(self,__object : str | dict, default:str,config_string : str = '(number)[time]|cabinet| lesson - default |distance|/n') -> None:
+    self.object = __object
     self.config_string = config_string
     self.default = default
 
@@ -43,12 +45,13 @@ class TimeTable():
         
     return values
 
-  @staticmethod
   def __read_json_data(self) -> dict:
-    with open(self.filename,'r',encoding='UTF-8') as js:
-      json_data = json.loads(js.read())
-      return json_data
-    
+    if isinstance(self.object,str):
+      with open(self.object,'r',encoding='UTF-8') as js:
+        json_data = json.loads(js.read())
+        return json_data
+    else: return self.object
+      
   @staticmethod
   def __get_creation_date() -> str:
     created_time = os.path.getmtime('timetable.json')
@@ -80,6 +83,6 @@ class TimeTable():
       
     date = json_data['date']
     date_of_creation = self.__get_creation_date()
-    rows = f'Расписание на {date} для {self.default} \n(от {date_of_creation})\n\n' + rows
+    # \n(от {date_of_creation})\n\n
+    rows = f'Расписание на {date}\n{self.default} \n\n' + rows
     return rows
-

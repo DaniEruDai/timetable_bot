@@ -2,7 +2,6 @@ import requests
 import numpy as np
 import io
 from dataclasses import dataclass
-from aiohttp import ClientSession
 import openpyxl
 
 @dataclass
@@ -25,7 +24,7 @@ class Table(list):
     if len(index) == 0: return None
     return IndexObject(column = index[0][0],row=index[0][1])
 
-def get_table(worksheet_name : str ):
+def get_table(worksheet_name : str ) -> list:
   """
 Эта функция используется для получения данных из Google Sheets таблицы и преобразования их в объект класса Table.
   """
