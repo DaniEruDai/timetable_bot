@@ -90,7 +90,7 @@ class DB:
     return result
 
   def get_all_ids(self,table_name:str) -> list | None:
-    self.cur.execute(f"""SELECT * from '{table_name}' """)
+    self.cur.execute(f"""SELECT * from {table_name} """)
     result = [elem[0] for elem in self.cur.fetchall()]
   
     if not result:
