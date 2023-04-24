@@ -241,7 +241,7 @@ class ConfReg:
       Ctx.set(self.ctx_name, self.text)
 
       database.swap_user_state(self.user_id, States.EDIT_CONF[2])
-      try_start = TimeTable(read_json('test.json'), 'Тест', self.text).get_text()
+      try_start = TimeTable(read_json('src\\test.json'), 'Тест', self.text).get_text()
       send_message(self.user_id, f'Как это будет выглядеть\n\n{try_start}\n\nВы согласны ?',
                    keyboard=UserKeyboards.SELECTION)
 
