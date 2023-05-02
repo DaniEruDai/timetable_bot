@@ -17,3 +17,5 @@ class States:
   PREDICTION_MENU = 'prediction'
 
   PARAMETERS_MENU = 'parameters'
+  
+  EXCEL_MENU = 'excel_menu'

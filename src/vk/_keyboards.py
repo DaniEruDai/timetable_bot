@@ -79,6 +79,13 @@ def _CANCEL_KEYBOARD():
   keyboard.add_button(emoji.emojize(':hollow_red_circle:'), color=VkKeyboardColor.NEGATIVE)
   return keyboard.get_keyboard()
 
+def _EXCEL_KEYBOARD():
+  keyboard = VkKeyboard()
+  keyboard.add_button('За этот учебный год',color=VkKeyboardColor.SECONDARY)
+  keyboard.add_line()
+  keyboard.add_button(emoji.emojize(':hollow_red_circle:'), color=VkKeyboardColor.NEGATIVE)
+  return keyboard.get_keyboard()
+
 class UserKeyboards:
   EMPTY = VkKeyboard().get_empty_keyboard()
   SELECTION = _SELECTION_KEYBOARD()
@@ -90,5 +97,6 @@ class UserKeyboards:
   CANCEL = _CANCEL_KEYBOARD()
   MAILING = _MAILING_KEYBOARD()
   PARAMETERS = _PARAMETERS_KEYBOARD()
+  EXCEL = _EXCEL_KEYBOARD()
 
 

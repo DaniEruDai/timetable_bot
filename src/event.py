@@ -1,57 +1,60 @@
-from dotenv import load_dotenv,find_dotenv
-load_dotenv(find_dotenv('__additional_files__\\.env'))
 import os
 
-from schedule.kgtt.timetable import TimeTable,write_json,get_dict,read_json
+from schedule.timetable import Timetable,get_dict
+from schedule.tjson import *
 from vk.database import DB
 
 import vk_api
 
-import logging
 import threading
 import time
 
+from dotenv import load_dotenv,find_dotenv
+load_dotenv(find_dotenv('.env'))
 
-logging.basicConfig(filename='events.log',format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO,encoding='utf-8')
+_token = os.getenv('TOKEN')
+_json = os.getenv('js_path')
+_db = os.getenv('db_path')
 
-def send_message_user(user_id, message):
-  session = vk_api.VkApi(token=os.getenv('__TOKEN__'))
+
+def send_message(user_id : int, message : str):
+  session = vk_api.VkApi(token=_token)
   session.method('messages.send',{'user_id': user_id, 'message': message, 'random_id': 0})
 
-def listener(__couldown : int = 120):
-  while True:
-    _new = get_dict()
-    
+class Event:
+  def __init__(self,_reload_time : int) -> None:
+    self._reload_time = _reload_time
+    self.database = DB(_db)
+
+  def _listener(self):
+    while True:
+      try:
+        old = read_json(_json) # Словарь из файла
+      except FileNotFoundError:
+        old = None
+      
+      new = get_dict() # Словарь из интернета
+      yield old,new
+      time.sleep(self._reload_time)
+  
+  @staticmethod
+  def _thread(user_id,default,config,obj):
     try:
-      _old = read_json('timetable.json')
-    except FileNotFoundError:
-      write_json('timetable.json',get_dict())
-      continue
+      text = Timetable(obj,default,config).get_text()
+      send_message(user_id, text)
+    except KeyError:
+      pass
 
-    yield _old,_new
-    time.sleep(__couldown)
+  def start(self):
+    for old,new in self._listener():    
+      mailing_data =  self.database.get_mailing_id()
+      for user_id,default,config in mailing_data :
+        try:
+          if old[default] != new[default]:
+            threading.Thread(target=self._thread,args=[user_id,default,config,new]).start()
+        except TypeError:
+          pass
+        
+      write_json(_json, new)
 
-def send_message_for_user(obj,default,config_string,user_id):
-  text = TimeTable(obj,
-                  default=default,
-                  config_string=config_string).get_text()
-  send_message_user(user_id,text)
-  logging.info(f'Message sent to the user - |vk.com/id{user_id}| ({default})')
-
-def __main__():
-  database = DB('data.db')
-  for old,new in listener():
-    db_data =  database.get_all_ids_for_broadcast()
-    if not db_data:
-      logging.exception("IDs not found")
-      continue
-
-    for user_id,default,config in db_data :
-      if old[default] != new[default]:
-        threading.Thread(target=send_message_for_user,args=[new,default,config,user_id]).start()
-
-    write_json('timetable.json', new)
-    logging.info('JSON was update')
-
-if __name__ == '__main__':
-  __main__()
+Event(30).start()

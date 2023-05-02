@@ -1,21 +1,26 @@
-from dotenv import load_dotenv,find_dotenv
-load_dotenv(find_dotenv('__additional_files__\\.env'))
-
 import os
 from vk.database import DB
 
-from schedule.kgtt.timetable import TimeTable
+from schedule.timetable import Timetable
 import json
 
 from vkbottle.bot import Bot,Message
 
 
 
-bot = Bot(token=os.getenv('__TOKEN__'))
-database = DB('data.db')
+from dotenv import load_dotenv,find_dotenv
+load_dotenv(find_dotenv('.env'))
+
+_token = os.getenv('TOKEN')
+_json = os.getenv('js_path')
+_db = os.getenv('db_path')
+
+
+bot = Bot(token=_token)
+database = DB(_db)
 
 def _get_keys():
-  with open('timetable.json','r',encoding='utf-8') as js:
+  with open(_json,'r',encoding='utf-8') as js:
     dictionary = json.loads(js.read())
   return tuple(dictionary.keys())
 
@@ -55,7 +60,7 @@ async def timetable_handler(message: Message):
   default = database.get_information_from('chat',message.chat_id)['object']
   config = database.get_information_from('chat',message.chat_id)['config']
   if default:
-    text = TimeTable('timetable.json',default=default,config_string=config).get_text()
+    text = Timetable(_json,default=default,config_string=config).get_text()
     await message.answer(text)
   else : 
     await message.answer('Для начала настройте объект\nЭто можно сделать при помощи команды : !изменить')

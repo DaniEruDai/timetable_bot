@@ -11,18 +11,18 @@ class Marks:
     
     
     if self.__length_of_date == 4:
-          start = datetime.strptime(f'0109{self.__date}', "%d%m%Y").date()
-          dates = [start.strftime('%m.%Y')]+ [(start + relativedelta(months=date)).strftime('%m.%Y') for date in range(1, 9)]
+      start = datetime.strptime(f'0109{self.__date}', "%d%m%Y").date()
+      dates = [start.strftime('%m.%Y')]+ [(start + relativedelta(months=date)).strftime('%m.%Y') for date in range(1, 9)]
     
     
-    exp = {4:lambda cls :cls.DATE[3:] in dates,
-              7:lambda cls :cls.DATE[3:] == date,
-              10:lambda cls : cls.DATE[0:] == date
+    exp = {4:lambda cls :cls.date.strftime('%Y') in dates,
+              7:lambda cls :cls.date.strftime('%m.%Y') == date,
+              10:lambda cls : cls.date.strftime('%d.%m.%Y') == date
               }[self.__length_of_date]
     
       
     self.__filtering = list(filter(exp, list_of_marks))
-    self.__lessons = set(i.LESSON for i in self.__filtering)
+    self.__lessons = set(i.lesson for i in self.__filtering)
 
   def get_average_score(self)-> list:
     
@@ -32,8 +32,8 @@ class Marks:
       summ = 0
       counter = 0
       for obj in self.__filtering:
-        if obj.LESSON == lesson:
-          summ += obj.MARK
+        if obj.lesson == lesson:
+          summ += obj.mark
           counter+=1
           
       temp_list.append(round(summ/counter,2))
@@ -46,8 +46,8 @@ class Marks:
       temp_list = [lesson]
       marks = []
       for obj in self.__filtering:
-        if obj.LESSON == lesson:
-          marks.append(obj.MARK)
+        if obj.lesson == lesson:
+          marks.append(obj.mark)
           
       temp_list.append(marks)
       result.append(temp_list)

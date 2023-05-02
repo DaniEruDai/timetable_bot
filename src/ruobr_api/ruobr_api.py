@@ -1,13 +1,15 @@
 from ._schedule import Schedule
 from ._marks import Marks
+from ._excel import Excel
 from .exceptions import RuobrException
+
+from dataclasses import dataclass
 
 import asyncio
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 import requests
-
 from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 
@@ -51,16 +53,25 @@ def key_to_date(__key : str) -> str:
       case 'year':
         return (datetime.now() - relativedelta(years=1)).strftime('%Y')
 
-class _MarkObject:
-  def __init__(self,date,lesson,mark) -> None:
-    self.DATE : str = date
-    self.LESSON : str = lesson
-    self.MARK : int = self.__change__to_nums(mark)
-    
+class MarkObject:
+  def __init__(self, __date : str , __lesson : str, __mark : str):
+    self._date = datetime.strptime(__date,'%d.%m.%Y')
+    self._lesson = __lesson
+    self._mark = self.__to_nums(__mark)
+
+  def init(cls):
+    return cls.mrk(date=cls._date, lesson=cls._lesson, mark=cls._mark)
+
   @staticmethod
-  def __change__to_nums(mark : str) -> int :
+  def __to_nums(mark : str) -> int :
     return {'отлично': 5,'хорошо': 4,'удовлетворительно': 3,'неудовлетворительно': 2}[mark]
 
+  @dataclass
+  class mrk:
+    date : datetime
+    lesson : str
+    mark : int
+ 
 class Ruobr:
 
     def __init__(self, username, password):
@@ -75,7 +86,6 @@ class Ruobr:
         session.post('https://cabinet.ruobr.ru/login/', headers=headers, data=data)
       
         result = dict(session.cookies)
-        
         if len(result) != 2:
           raise RuobrException.AuthException('Логин или пароль указаны неверно!')
         
@@ -115,7 +125,7 @@ class Ruobr:
               for t in data:
                 cleantext = BeautifulSoup(t, 'html.parser').text.split('\n')[3:6]
                 if cleantext != ['Дата', 'Дисциплина', 'Отметка']:
-                  all_marks.append(_MarkObject(date = cleantext[0], lesson = cleantext[1], mark = cleantext[2]))
+                  all_marks.append(MarkObject(cleantext[0],cleantext[1],cleantext[2]).init())
                 
             return all_marks
 
@@ -152,3 +162,22 @@ class Ruobr:
        return Schedule(self.__get_schedule_response(__date))
       else:
         raise RuobrException.DateException('Неверный формат даты')
+
+    def get_excel(self,__year : str) -> Excel:
+      def check_format_year(__date : str) -> bool:
+        match len(__date):
+          case 4:
+            return __date.isdigit()
+          case _:
+            return False
+      
+      if __year == 'now':
+        __year = (datetime.now() - relativedelta(years=1)).strftime('%Y')
+      
+      if not check_format_year(__year):
+        raise RuobrException.DateException('Неверный формат даты')
+      list_of_marks = self.__get_esimation()
+      return Excel(list_of_marks,__year)
+    
+
+

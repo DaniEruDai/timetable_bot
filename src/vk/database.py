@@ -13,7 +13,6 @@ class DB:
     
     #Курсор
     self.cur = self.conn.cursor()
-    
     #Создание таблицы для чатов
     self.cur.execute("""CREATE TABLE IF NOT EXISTS chat(id INT,object TEXT,config TEXT);""")
     #Создание таблицы для пользователей
@@ -21,7 +20,7 @@ class DB:
     #Закрепление изменений
     self.conn.commit()
     
-  def _get_titles(self,table_name:str)-> list:
+  def get_titles(self,table_name:str)-> list:
     self.cur.execute(f'PRAGMA table_info({table_name})')
     titles = [i[1] for i in self.cur.fetchall()]
     return titles  
@@ -41,7 +40,7 @@ class DB:
     values = self.cur.fetchone()
     dictionary = {}
     
-    for title,value in zip(self._get_titles(table_name),values):
+    for title,value in zip(self.get_titles(table_name),values):
       dictionary[title] = value
     return dictionary
 
@@ -80,13 +79,16 @@ class DB:
     self.cur.execute(f"""UPDATE user set state = '{new_state}' where id = {id}""")
     self.conn.commit()
 
-  def get_all_ids_for_broadcast(self) -> list | None:
+  def get_mailing_id(self) -> list | None:
+    class IdNotFound(Exception): ...
+      
+    
     self.cur.execute(f"""SELECT * from user where mailing = 'True' """)
     result = [(elem[0],elem[3],elem[4]) for elem in self.cur.fetchall() if elem[3] != '']
-  
     
     if not result:
-      return None
+      raise IdNotFound('Идентефикаторы рассылки не найдены')
+    
     return result
 
   def get_all_ids(self,table_name:str) -> list | None:
@@ -96,3 +98,4 @@ class DB:
     if not result:
       return None
     return result
+  

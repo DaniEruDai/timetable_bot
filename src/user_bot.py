@@ -1,358 +1,351 @@
-from dotenv import load_dotenv,find_dotenv
-load_dotenv(find_dotenv('__additional_files__\\.env'))
-
-
-
 from ruobr_api.ruobr_api import Ruobr, RuobrException, get_tomorrow
-from schedule.kgtt.timetable import TimeTable, read_json
+from schedule.timetable import Timetable,get_dict
+from schedule.tjson import *
 
+import os
 
-from vk.UserBot._bot import send_message, message_handler, state_handler, multiply_handler, StartBot, get_fullname
-from vk.UserBot._bot import CtxStorage
-from vk.UserBot._keyboards import UserKeyboards
-from vk.UserBot._states import States
+from vk.UserBot import UserBot
 
-from vk.database import DB
-
+from vk.ctx import CtxStorage
+from vk._keyboards import UserKeyboards
+from vk._states import States
 
 import json
 import emoji
+from io import BytesIO
+from datetime import datetime
 
 
-database = DB('data.db')
+from dotenv import load_dotenv,find_dotenv
+load_dotenv(find_dotenv('.env'))
+
+_json = os.getenv('js_path')
+_db = os.getenv('db_path')
+
+bot = UserBot(_db,'user',os.getenv('TOKEN'))
 Ctx = CtxStorage()
 
 
 def _get_keys() -> tuple:
-  with open('timetable.json', 'r', encoding='utf-8') as js:
+  with open(_json, 'r', encoding='utf-8') as js:
     dictionary = json.loads(js.read())
   return tuple(dictionary.keys())
 
-
-"""Общие меню"""
-
-
 class Utilities:
 
-  @message_handler('!р', '!расписание', '/р', '/расписание')
+  @bot.on.message('!json')
+  def service_reload(self):
+    if self.user_id == 435170678:
+      bot.utils.send_message('Ожидайте...')
+      write_json(_json,get_dict())
+      bot.utils.send_message('JSON перезаписан!')
+
+  @bot.on.message('!р', '!расписание', '/р', '/расписание')
   def send_shedule(self):
     if self.object:
-      # Получение расписания
-      try:
-        text = TimeTable(read_json('timetable.json'), self.object, self.config).get_text()
-        send_message(self.user_id, text)
-      except Exception:
-        send_message(self.user_id, 'Возникла ошибка при получении расписания.\nПопробуйте изменить объект расписания.')
-
-
+      text = Timetable(_json, self.object, self.config).get_text()
+      bot.utils.send_message(text)
     else:
-      database.swap_user_state(self.user_id, States.REGISTER[0])
-      send_message(self.user_id, 'Объект для рассылки не найден\nПриступаем к регистарции!', UserKeyboards.OK)
+      bot.db.set_state(States.REGISTER[0])
+      bot.utils.send_message('Объект для рассылки не найден\nПриступаем к регистарции!', keyboard = UserKeyboards.OK)
 
-  @message_handler('Начать', 'Начало', 'Старт', '/start', '/Начать')
+  @bot.on.message('Начать', 'Начало', 'Старт', '/start', '/Начать')
   def start(self):
-    send_message(self.user_id, 'За работу!', UserKeyboards.MAIN_MENU)
+    bot.utils.send_message('За работу!', keyboard =UserKeyboards.MAIN_MENU)
 
-  @message_handler('!сброс', '/сброс')
+  @bot.on.message('!сброс', '/сброс')
   def reset(self):
+    bot.db.set_state(States.MAIN_MENU)
+    bot.db.delete_user()
+    bot.utils.send_message('Все данные успешно удалены!', keyboard =UserKeyboards.MAIN_MENU)
 
-    database.swap_user_state(self.user_id, States.MAIN_MENU)
-    database.delete_user(self.user_id)
-    send_message(self.user_id, 'Все данные успешно удалены!', UserKeyboards.MAIN_MENU)
-
-  @message_handler(emoji.emojize(':hollow_red_circle:'))
+  @bot.on.message(emoji.emojize(':hollow_red_circle:'))
   def back(self):
-    database.swap_user_state(self.user_id, States.MAIN_MENU)
-    send_message(self.user_id, 'Главное меню', UserKeyboards.MAIN_MENU)
-
+    bot.db.set_state(States.MAIN_MENU)
+    bot.utils.send_message('Главное меню', keyboard =UserKeyboards.MAIN_MENU)
 
 class Main:
 
-  @multiply_handler(['Расписание'], [States.MAIN_MENU])
+  @bot.on.multiply(['Расписание'], [States.MAIN_MENU])
   def schedule(self):
-    database.swap_user_state(self.user_id, States.SCHEDULE_MENU)
-    send_message(self.user_id, 'Раздел с расписанием', UserKeyboards.SCHEDULE)
+    bot.db.set_state(States.SCHEDULE_MENU)
+    bot.utils.send_message('Раздел с расписанием', keyboard =UserKeyboards.SCHEDULE)
 
-  @multiply_handler(['Оценки'], [States.MAIN_MENU])
+  @bot.on.multiply(['Оценки'], [States.MAIN_MENU])
   def marks(self):
     if self.ruobr_login and self.ruobr_password:
-      database.swap_user_state(self.user_id, States.MARKS_MENU)
-      send_message(self.user_id, 'Напишите дату или выберите один из нескольких вариантов', UserKeyboards.EVALUATION)
+      bot.db.set_state(States.MARKS_MENU)
+      bot.utils.send_message('Напишите дату или выберите один из нескольких вариантов', keyboard =UserKeyboards.EVALUATION)
     else:
-      database.swap_user_state(self.user_id, States.RUOBR_REGISTER[0])
-      send_message(self.user_id, 'Для работы раздела необходимо зайти в Cabinet Ruobr!', UserKeyboards.OK)
+      bot.db.set_state(States.RUOBR_REGISTER[0])
+      bot.utils.send_message('Для работы раздела необходимо зайти в Cabinet Ruobr!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler([emoji.emojize(':gear:')], [States.MAIN_MENU])
+  @bot.on.multiply([emoji.emojize(':gear:')], [States.MAIN_MENU])
   def parameters(self):
 
-    fullname = get_fullname(self.user_id)
+    fullname = bot.utils.get_fullname()
     text = f"{fullname}\n\nОбъект таблицы : {self.object}\nКонфигурация расписания : \n{self.config}\nЛогин : {self.ruobr_login}\nПароль : {self.ruobr_password}"
 
-    database.swap_user_state(self.user_id, States.PARAMETERS_MENU)
-    send_message(self.user_id, text, UserKeyboards.PARAMETERS)
-
+    bot.db.set_state(States.PARAMETERS_MENU)
+    bot.utils.send_message(text, keyboard =UserKeyboards.PARAMETERS)
 
 class Parameters:
-  @multiply_handler(['Изменить логин и пароль Ruobr'], [States.PARAMETERS_MENU])
+  @bot.on.multiply(['Изменить логин и пароль Ruobr'], [States.PARAMETERS_MENU])
   def edit_pl(self):
-    database.swap_user_state(self.user_id, States.RUOBR_REGISTER[0])
-    send_message(self.user_id, 'Начнем!', UserKeyboards.OK)
+    bot.db.set_state(States.RUOBR_REGISTER[0])
+    bot.utils.send_message('Начнем!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler(['Изменить конфиг'], [States.PARAMETERS_MENU])
+  @bot.on.multiply(['Изменить конфиг'], [States.PARAMETERS_MENU])
   def edit_configuration(self):
-    database.swap_user_state(self.user_id, States.EDIT_CONF[0])
-    send_message(self.user_id, 'Начнем!', UserKeyboards.OK)
+    bot.db.set_state(States.EDIT_CONF[0])
+    bot.utils.send_message('Начнем!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler(['Изменить объект'], [States.PARAMETERS_MENU])
+  @bot.on.multiply(['Изменить объект'], [States.PARAMETERS_MENU])
   def edit_object(self):
-    database.swap_user_state(self.user_id, States.REGISTER[0])
-    send_message(self.user_id, 'Начнем!', UserKeyboards.OK)
+    bot.db.set_state(States.REGISTER[0])
+    bot.utils.send_message('Начнем!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler(['Помощь'], [States.PARAMETERS_MENU])
+  @bot.on.multiply(['Помощь'], [States.PARAMETERS_MENU])
   def helps(self):
     text = "Дополнительные команды\n\n!сброс - Полностью сбрасывает все параметры пользователя\n\nВопросы можете задать тут :"
-    send_message(self.user_id, text, url='https://vk.com/topic-214878797_49282332')
-
-
-"""Расписание = [Предсказания,Рассылка]"""
-
+    bot.utils.send_message(text, url='https://vk.com/topic-214878797_49282332')
 
 class Schedule:
-  @multiply_handler(['Рассылка'], [States.SCHEDULE_MENU])
+  @bot.on.multiply(['Рассылка'], [States.SCHEDULE_MENU])
   def mailing(self):
     if self.object:
-      database.swap_user_state(self.user_id, States.MAILING_MENU)
-      send_message(self.user_id, 'Всё окей!', keyboard=UserKeyboards.MAILING)
+      bot.db.set_state(States.MAILING_MENU)
+      bot.utils.send_message('Всё окей!', keyboard =UserKeyboards.MAILING)
 
     else:
-      database.swap_user_state(self.user_id, States.REGISTER[0])
-      send_message(self.user_id, 'Объект для рассылки не найден\nПриступаем к регистарции!', UserKeyboards.OK)
+      bot.db.set_state(States.REGISTER[0])
+      bot.utils.send_message('Объект для рассылки не найден\nПриступаем к регистарции!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler(['Предсказания'], [States.SCHEDULE_MENU])
+  @bot.on.multiply(['Предсказания'], [States.SCHEDULE_MENU])
   def prediction(self):
     if self.ruobr_login and self.ruobr_password:
-      database.swap_user_state(self.user_id, States.PREDICTION_MENU)
-      send_message(self.user_id,
-                   'Раздел "Предсказания" позволяет получить расписание из "Ruobr" по дате, однако стоит учитывать, что оно может быть неточным.',
-                   UserKeyboards.PREDICTION)
+      bot.db.set_state(States.PREDICTION_MENU)
+      bot.utils.send_message(                   'Раздел "Предсказания" позволяет получить расписание из "Ruobr" по дате, однако стоит учитывать, что оно может быть неточным.',
+                   keyboard =UserKeyboards.PREDICTION)
     else:
-      database.swap_user_state(self.user_id, States.RUOBR_REGISTER[0])
-      send_message(self.user_id, 'Для работы раздела необходимо зайти в Cabinet Ruobr!', UserKeyboards.OK)
+      bot.db.set_state(States.RUOBR_REGISTER[0])
+      bot.utils.send_message('Для работы раздела необходимо зайти в Cabinet Ruobr!', keyboard =UserKeyboards.OK)
 
-  @multiply_handler(['Из таблицы'], [States.SCHEDULE_MENU])
+  @bot.on.multiply(['Из таблицы'], [States.SCHEDULE_MENU])
   def from_table(self):
     if self.object:
-      try:
-        text = TimeTable(read_json('timetable.json'), self.object, self.config).get_text()
-        send_message(self.user_id, text)
-      except Exception:
-        send_message(self.user_id, 'Возникла ошибка при получении расписания.\nПопробуйте изменить объект расписания.')
+      text = Timetable(_json, self.object, self.config).get_text()
+      bot.utils.send_message(text) 
     else:
-      database.swap_user_state(self.user_id, States.REGISTER[0])
-      send_message(self.user_id, 'Объект расписания не найден\nПриступаем к регистарции!', UserKeyboards.OK)
-
+      bot.db.set_state(States.REGISTER[0])
+      bot.utils.send_message('Объект расписания не найден\nПриступаем к регистарции!', keyboard = UserKeyboards.OK)
 
 class Prediction:
 
-  @state_handler(States.PREDICTION_MENU)
+  @bot.on.state(States.PREDICTION_MENU)
   def input_date(self):
     if self.text != emoji.emojize(':hollow_red_circle:') and self.text[0].isdigit():
       try:
         text = Ruobr(self.ruobr_login, self.ruobr_password).get_schedule(self.text).get_text()
-        send_message(self.user_id, f"Расписание на {self.text}\n\n{text}")
+        bot.utils.send_message(f"Расписание на {self.text}\n\n{text}")
       except RuobrException.DateException:
-        send_message(self.user_id, 'Неверный формат даты!\nДень.Месяц.Год')
+        bot.utils.send_message('Неверный формат даты!\nДень.Месяц.Год')
       except RuobrException.EmptyScheduleException:
-        send_message(self.user_id, f'Расписания на {self.text} нет!')
+        bot.utils.send_message(f'Расписания на {self.text} нет!')
 
-  @multiply_handler(['На завтра'], [States.PREDICTION_MENU])
+  @bot.on.multiply(['На завтра'], [States.PREDICTION_MENU])
   def tomorrow(self):
     try:
       str_tomorrow = get_tomorrow()
       text = Ruobr(self.ruobr_login, self.ruobr_password).get_schedule(str_tomorrow).get_text()
-      send_message(self.user_id, f"Расписание на {str_tomorrow}\n\n{text}")
+      bot.utils.send_message(f"Расписание на {str_tomorrow}\n\n{text}")
     except RuobrException.EmptyScheduleException:
-      send_message(self.user_id, f'Расписания на {str_tomorrow} нет!')
-
+      bot.utils.send_message(f'Расписания на {str_tomorrow} нет!')
 
 class Mailing:
-  @multiply_handler(['Отписаться'], [States.MAILING_MENU])
+  
+  @bot.on.multiply(['Отписаться'], [States.MAILING_MENU])
   def unsubscribe(self):
-    database.update_field(self.user_id, 'user', 'mailing', 'False')
-    send_message(self.user_id, 'Рассылка отключена!')
+    bot.db.update_field(category='mailing', new ='False')
+    bot.utils.send_message('Рассылка отключена!')
 
-  @multiply_handler(['Подписаться'], [States.MAILING_MENU])
+  @bot.on.multiply(['Подписаться'], [States.MAILING_MENU])
   def subscribe(self):
-    database.update_field(self.user_id, 'user', 'mailing', 'True')
-    send_message(self.user_id, 'Рассылка включена!')
-
-
-"""Оценки"""
-
+    bot.db.update_field(category='mailing', new ='True')
+    bot.utils.send_message('Рассылка включена!')
 
 class Marks:
-  @state_handler(States.MARKS_MENU)
+  @bot.on.state(States.MARKS_MENU)
   def input_text(self):
     if self.text != emoji.emojize(':hollow_red_circle:') and self.text[0].isdigit():
       try:
-        send_message(self.user_id, 'Ожидайте...')
+        bot.utils.send_message('Ожидайте...')
         text = Ruobr(self.ruobr_login, self.ruobr_password).get_marks(self.text).get_text()
-        send_message(self.user_id, text)
+        bot.utils.send_message(text)
       except RuobrException.DateException:
-        send_message(self.user_id, 'Неверный формат даты!')
+        bot.utils.send_message('Неверный формат даты!')
 
-  @multiply_handler(['На сегодня'], [States.MARKS_MENU])
+  @bot.on.multiply(['На сегодня'], [States.MARKS_MENU])
   def get_marks_of_day(self):
-    send_message(self.user_id, 'Ожидайте...')
+    bot.utils.send_message('Ожидайте...')
     text = Ruobr(self.ruobr_login, self.ruobr_password).get_marks('day').get_text()
-    send_message(self.user_id, text)
+    bot.utils.send_message(text)
 
-  @multiply_handler(['За месяц'], [States.MARKS_MENU])
+  @bot.on.multiply(['За месяц'], [States.MARKS_MENU])
   def get_marks_of_day(self):
-    send_message(self.user_id, 'Ожидайте...')
+    bot.utils.send_message('Ожидайте...')
     text = Ruobr(self.ruobr_login, self.ruobr_password).get_marks('month').get_text()
-    send_message(self.user_id, text)
+    bot.utils.send_message(text)
 
-  @multiply_handler(['За год'], [States.MARKS_MENU])
+  @bot.on.multiply(['За год'], [States.MARKS_MENU])
   def get_marks_of_day(self):
-    send_message(self.user_id, 'Ожидайте...')
+    bot.utils.send_message('Ожидайте...')
     text = Ruobr(self.ruobr_login, self.ruobr_password).get_marks('year').get_text()
-    send_message(self.user_id, text)
+    bot.utils.send_message(text)
 
-  @multiply_handler(['Таблица оценок'], [States.MARKS_MENU])
+  @bot.on.multiply(['Таблица оценок'], [States.MARKS_MENU])
   def get_table_marks(self):
-    send_message(self.user_id, "Раздел в разработке")
+    bot.db.set_state(States.EXCEL_MENU)
+    bot.utils.send_message("Напишите год", keyboard=UserKeyboards.EXCEL)
 
-
-"""Регистрация"""
-
+class Excel:
+  @bot.on.multiply(['За этот учебный год'], [States.EXCEL_MENU])
+  def get_excel_marks_now(self):
+    bot.utils.send_message('Ожидайте...')
+    buffer = BytesIO()
+    Ruobr(self.ruobr_login, self.ruobr_password).get_excel('now').save(buffer)
+    fullname = bot.utils.get_fullname().split(' ')
+    filename = f'{fullname[0]}_{fullname[1]}_{datetime.now().strftime("%Y_%m_%d")}'
+    attachments = [filename,buffer]
+    bot.utils.send_message('Ваш файл готов!', file = attachments)
+    buffer.close()
+  
+  @bot.on.state(States.EXCEL_MENU)
+  def get_excel_marks_now(self):
+    if self.text != emoji.emojize(':hollow_red_circle:') and self.text[0].isdigit():
+      try:
+        bot.utils.send_message('Ожидайте...')
+        buffer = BytesIO()
+        Ruobr(self.ruobr_login, self.ruobr_password).get_excel(self.text).save(buffer)
+        fullname = bot.utils.get_fullname().split(' ')
+        filename = f'{fullname[0]}_{fullname[1]}_{datetime.now().strftime("%Y_%m_%d")}'
+        attachments = [filename,buffer]
+        bot.utils.send_message('Ваш файл готов!', file = attachments)
+        buffer.close()
+      except RuobrException.DateException:
+        bot.utils.send_message('Неверный формат даты!')
 
 class ConfReg:
-  @multiply_handler([emoji.emojize(':OK_button:')], [States.EDIT_CONF[0]])
+  @bot.on.multiply([emoji.emojize(':OK_button:')], [States.EDIT_CONF[0]])
   def ok_answer(self):
-    database.swap_user_state(self.user_id, States.EDIT_CONF[1])
-    send_message(self.user_id,
-                 'Введите конфигурацию для расписания',
-                 UserKeyboards.CANCEL, url='vk.com/@schedule_kgtt-konfiguraciya')
+    bot.db.set_state(States.EDIT_CONF[1])
+    bot.utils.send_message('Введите конфигурацию для расписания',keyboard = UserKeyboards.CANCEL, url='vk.com/@schedule_kgtt-konfiguraciya')
 
-  @state_handler(States.EDIT_CONF[1])
+  @bot.on.state(States.EDIT_CONF[1])
   def sub_register_1(self):
     if self.text != emoji.emojize(':hollow_red_circle:'):
-      Ctx.set(self.ctx_name, self.text)
+      ctx_name = f'attr{self.user_id}'
+      Ctx.set(ctx_name, self.text)
+      
+      try_start = Timetable('src/test.json', 'Тест', self.text).get_text()
+      bot.db.set_state(States.EDIT_CONF[2])
+      bot.utils.send_message(f'Пример :\n\n{try_start}', keyboard = UserKeyboards.SELECTION)
+      bot.utils.send_message('Вы согласны ?')
 
-      database.swap_user_state(self.user_id, States.EDIT_CONF[2])
-      try_start = TimeTable(read_json('src\\test.json'), 'Тест', self.text).get_text()
-      send_message(self.user_id, f'Как это будет выглядеть\n\n{try_start}\n\nВы согласны ?',
-                   keyboard=UserKeyboards.SELECTION)
 
-  @multiply_handler([emoji.emojize(':thumbs_up:')], [States.EDIT_CONF[2]])
+  @bot.on.multiply([emoji.emojize(':thumbs_up:')], [States.EDIT_CONF[2]])
   def sub_register_table_positive_answer(self):
-    database.update_field(self.user_id, 'user', 'config', Ctx.get(self.ctx_name))
-    Ctx.delete(self.ctx_name)
-    database.swap_user_state(self.user_id, States.MAIN_MENU)
-    send_message(self.user_id,
-                 'Успешно',
-                 UserKeyboards.MAIN_MENU)
+    bot.db.update_field(category='config', new= Ctx.get(f'attr{self.user_id}'))
+    Ctx.delete(f'attr{self.user_id}')
+    bot.db.set_state(States.MAIN_MENU)
+    bot.utils.send_message('Успешно!',keyboard = UserKeyboards.MAIN_MENU)
 
-  @multiply_handler([emoji.emojize(':thumbs_down:')], [States.EDIT_CONF[2]])
+  @bot.on.multiply([emoji.emojize(':thumbs_down:')], [States.EDIT_CONF[2]])
   def sub_register_table_negative_answer(self):
-    database.swap_user_state(self.user_id, States.EDIT_CONF[1])
-
-    send_message(self.user_id, 'Введите конфигурацию для расписания', UserKeyboards.CANCEL)
-
+    bot.db.set_state(States.EDIT_CONF[1])
+    bot.utils.send_message('Введите конфигурацию для расписания', keyboard = UserKeyboards.CANCEL)
 
 class TableReg:
-  @multiply_handler([emoji.emojize(':OK_button:')], [States.REGISTER[0]])
+  @bot.on.multiply([emoji.emojize(':OK_button:')], [States.REGISTER[0]])
   def ok_answer(self):
-    database.swap_user_state(self.user_id, States.REGISTER[1])
-    send_message(self.user_id,
-                 'Введите группу или преподавателя, как указано в таблице',
-                 UserKeyboards.CANCEL, 'https://clck.ru/psvfm')
+    bot.db.set_state(States.REGISTER[1])
+    bot.utils.send_message('Введите группу или преподавателя, как указано в таблице',keyboard =UserKeyboards.CANCEL, url = 'https://clck.ru/psvfm')
 
-  @state_handler(States.REGISTER[1])
+  @bot.on.state(States.REGISTER[1])
   def register_1(self):
     if self.text in _get_keys():
-      Ctx.set(self.ctx_name, self.text)
+      
+      Ctx.set(f'attr{self.user_id}', self.text)
+      bot.db.set_state(States.REGISTER[2])
+      bot.utils.send_message('Вы согласны ?', keyboard=UserKeyboards.SELECTION)
 
-      database.swap_user_state(self.user_id, States.REGISTER[2])
-      send_message(self.user_id, 'Вы согласны ?', keyboard=UserKeyboards.SELECTION)
-
-  @multiply_handler([emoji.emojize(':thumbs_up:')], [States.REGISTER[2]])
+  @bot.on.multiply([emoji.emojize(':thumbs_up:')], [States.REGISTER[2]])
   def register_table_positive_answer(self):
-    database.update_field(self.user_id, 'user', 'object', Ctx.get(self.ctx_name))
-    Ctx.delete(self.ctx_name)
-    database.swap_user_state(self.user_id, States.MAIN_MENU)
-    send_message(self.user_id,
-                 'Вы успешно зарегистрированы\n!р - Получить расписание',
-                 UserKeyboards.MAIN_MENU)
+    bot.db.update_field(category='object', new = Ctx.get(f'attr{self.user_id}'))
+    Ctx.delete(f'attr{self.user_id}')
+    bot.db.set_state(States.MAIN_MENU)
+    bot.utils.send_message('Вы успешно зарегистрированы\n!р - Получить расписание',keyboard =UserKeyboards.MAIN_MENU)
 
-  @multiply_handler([emoji.emojize(':thumbs_down:')], [States.REGISTER[2]])
+  @bot.on.multiply([emoji.emojize(':thumbs_down:')], [States.REGISTER[2]])
   def register_table_negative_answer(self):
-    database.swap_user_state(self.user_id, States.REGISTER[1])
-    send_message(self.user_id,
-                 'Введите группу или преподавателя, как указано в таблице',
-                 UserKeyboards.CANCEL, 'https://clck.ru/psvfm')
-
+    bot.db.set_state(States.REGISTER[1])
+    bot.utils.send_message('Введите группу или преподавателя, как указано в таблице', keyboard = UserKeyboards.CANCEL, url = 'https://clck.ru/psvfm')
 
 class RuobrReg:
-
-  @multiply_handler([emoji.emojize(':OK_button:')], [States.RUOBR_REGISTER[0]])
+  @bot.on.multiply([emoji.emojize(':OK_button:')], [States.RUOBR_REGISTER[0]])
   def ok_answer(self):
-    database.swap_user_state(self.user_id, States.RUOBR_REGISTER[1])
-    send_message(self.user_id,
-                 'Введите логин от Cabinet Ruobr',
-                 UserKeyboards.CANCEL)
+    bot.db.set_state(States.RUOBR_REGISTER[1])
+    bot.utils.send_message('Введите логин от Cabinet Ruobr',keyboard =UserKeyboards.CANCEL, url = 'https://cabinet.ruobr.ru/login/')
 
-  @state_handler(States.RUOBR_REGISTER[1])
-  def register_password(self):
+  @bot.on.state(States.RUOBR_REGISTER[1])
+  def register_login(self):
     if self.text != emoji.emojize(':hollow_red_circle:'):
-      # Запись временного логина
-      ctx_ruobr_login = self.ctx_name + '_login'
-      Ctx.set(ctx_ruobr_login, self.text)
+      
+      ctx_login = f'attr{self.user_id}_login'
+      Ctx.set(ctx_login, self.text)
+      
+      bot.db.set_state(States.RUOBR_REGISTER[2])
+      bot.utils.send_message(f'Логин : {Ctx.get(ctx_login)}\nВведите пароль от Cabinet Ruobr', keyboard =UserKeyboards.CANCEL)
 
-      database.swap_user_state(self.user_id, States.RUOBR_REGISTER[2])
-      send_message(self.user_id, 'Введите пароль от Cabinet Ruobr', UserKeyboards.CANCEL)
-
-  @state_handler(States.RUOBR_REGISTER[2])
+  @bot.on.state(States.RUOBR_REGISTER[2])
   def register_selection(self):
     if self.text != emoji.emojize(':hollow_red_circle:'):
-      # Запись временного пароля
-      ctx_ruobr_password = self.ctx_name + '_password'
-      ctx_ruobr_login = self.ctx_name + '_login'
-      Ctx.set(ctx_ruobr_password, self.text)
-      database.swap_user_state(self.user_id, States.RUOBR_REGISTER[3])
-      send_message(self.user_id, f"Логин: {Ctx.get(ctx_ruobr_login)}\nПароль: {Ctx.get(ctx_ruobr_password)}")
-      send_message(self.user_id, 'Вы согласны ?', keyboard=UserKeyboards.SELECTION)
+      
+      ctx_login = f'attr{self.user_id}_login'
+      ctx_password = f'attr{self.user_id}_password'
 
-  @multiply_handler([emoji.emojize(':thumbs_up:')], [States.RUOBR_REGISTER[3]])
+      Ctx.set(ctx_password,self.text)
+      
+      bot.db.set_state(States.RUOBR_REGISTER[3])
+      bot.utils.send_message(f"Логин : {Ctx.get(ctx_login)}\nПароль : {Ctx.get(ctx_password)}")
+      bot.utils.send_message('Вы согласны ?', keyboard = UserKeyboards.SELECTION)
+
+  @bot.on.multiply([emoji.emojize(':thumbs_up:')], [States.RUOBR_REGISTER[3]])
   def register_table_positive_answer(self):
-    database.swap_user_state(self.user_id, States.MAIN_MENU)
+    bot.db.set_state(States.MAIN_MENU)
     try:
-      ctx_ruobr_password = self.ctx_name + '_password'
-      ctx_ruobr_login = self.ctx_name + '_login'
-      Ruobr(Ctx.get(ctx_ruobr_login), Ctx.get(ctx_ruobr_password))
+      ctx_login = f'attr{self.user_id}_login'
+      ctx_password = f'attr{self.user_id}_password'
+      
+      Ruobr(Ctx.get(ctx_login), Ctx.get(ctx_password))
 
-      database.update_field(self.user_id, 'user', 'ruobr_login', Ctx.get(ctx_ruobr_login))
-      database.update_field(self.user_id, 'user', 'ruobr_password', Ctx.get(ctx_ruobr_password))
+      bot.db.update_field(category='ruobr_login', new = Ctx.get(ctx_login))
+      bot.db.update_field(category='ruobr_password', new = Ctx.get(ctx_password))
 
-      database.swap_user_state(self.user_id, States.MAIN_MENU)
-      send_message(self.user_id, 'Вы успешно зарегистрированы!', UserKeyboards.MAIN_MENU)
-
-      Ctx.delete(ctx_ruobr_login)
-      Ctx.delete(ctx_ruobr_password)
-
-
+      bot.db.set_state(States.MAIN_MENU)
+      bot.utils.send_message('Вы успешно зарегистрированы!', keyboard =UserKeyboards.MAIN_MENU)
+      
+      Ctx.delete(ctx_password)
+      Ctx.delete(ctx_login)
+      
     except RuobrException.AuthException:
-      database.swap_user_state(self.user_id, States.RUOBR_REGISTER[1])
-      send_message(self.user_id, 'Логин или пароль указаны неверно!\nВведите логин от Cabinet Ruobr',
-                   UserKeyboards.CANCEL)
+      bot.db.set_state(States.RUOBR_REGISTER[1])
+      bot.utils.send_message('Логин или пароль указаны неверно!\nВведите логин от Cabinet Ruobr',
+                   keyboard =UserKeyboards.CANCEL)
 
-  @multiply_handler([emoji.emojize(':thumbs_down:')], [States.RUOBR_REGISTER[3]])
+  @bot.on.multiply([emoji.emojize(':thumbs_down:')], [States.RUOBR_REGISTER[3]])
   def register_table_negative_answer(self):
-    database.swap_user_state(self.user_id, States.RUOBR_REGISTER[1])
-    send_message(self.user_id,
-                 'Введите логин от Cabinet Ruobr',
-                 UserKeyboards.CANCEL)
+    bot.db.set_state(States.RUOBR_REGISTER[1])
+    bot.utils.send_message('Введите логин от Cabinet Ruobr', keyboard =UserKeyboards.CANCEL)
 
-
-StartBot()
+bot.Start()
