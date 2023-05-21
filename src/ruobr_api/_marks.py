@@ -15,7 +15,7 @@ class Marks:
       dates = [start.strftime('%m.%Y')]+ [(start + relativedelta(months=date)).strftime('%m.%Y') for date in range(1, 9)]
     
     
-    exp = {4:lambda cls :cls.date.strftime('%Y') in dates,
+    exp = {4:lambda cls :cls.date.strftime('%m.%Y') in dates,
               7:lambda cls :cls.date.strftime('%m.%Y') == date,
               10:lambda cls : cls.date.strftime('%d.%m.%Y') == date
               }[self.__length_of_date]
@@ -73,6 +73,8 @@ class Marks:
     result = []
     for i in [self.get_average_score,self.get_results_for_period][self.__length_of_date not in (4,7)]():
       result.append(f'{i[0]} - {i[1]}')
+    
+    result.sort()
     if result:
       match len(self.__date):
         case 4:

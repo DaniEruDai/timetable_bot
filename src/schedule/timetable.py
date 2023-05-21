@@ -8,8 +8,6 @@ from schedule.tjson import read_json
 def get_dict() -> dict:
   return get_dictionary_for_students() | get_dictionary_for_teachers()
 
-
-
 class Timetable():
   def __init__(self,_object : str | dict, _key:str, _config : str) -> None:
     self._object = _object

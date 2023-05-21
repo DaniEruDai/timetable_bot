@@ -60,7 +60,7 @@ async def timetable_handler(message: Message):
   default = database.get_information_from('chat',message.chat_id)['object']
   config = database.get_information_from('chat',message.chat_id)['config']
   if default:
-    text = Timetable(_json,default=default,config_string=config).get_text()
+    text = Timetable(_json,default,config).get_text()
     await message.answer(text)
   else : 
     await message.answer('Для начала настройте объект\nЭто можно сделать при помощи команды : !изменить')

@@ -247,7 +247,7 @@ class ConfReg:
       ctx_name = f'attr{self.user_id}'
       Ctx.set(ctx_name, self.text)
       
-      try_start = Timetable('src/test.json', 'Тест', self.text).get_text()
+      try_start = Timetable('/root/timetable_bot/src/test.json', 'Тест', self.text).get_text()
       bot.db.set_state(States.EDIT_CONF[2])
       bot.utils.send_message(f'Пример :\n\n{try_start}', keyboard = UserKeyboards.SELECTION)
       bot.utils.send_message('Вы согласны ?')
